@@ -4,6 +4,14 @@ function sortPoints(points) {
   );
 }
 
+function formatHourLabel(timestamp) {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export function averageSeriesValue(points) {
   if (!points?.length) {
     return 0;
@@ -80,6 +88,15 @@ export function buildCombinedTrendData(history, limit = 12) {
       home: Number(point.home.toFixed(1)),
       grid: Number(Math.max(point.home - point.solar, 0).toFixed(1)),
       reserve: Number(Math.max(point.solar - point.home, 0).toFixed(1)),
+    }));
+}
+
+export function buildGasTrendData(history, limit = 12) {
+  return sortPoints(history?.gas)
+    .slice(-limit)
+    .map((point) => ({
+      label: formatHourLabel(point.timestamp),
+      gas: Number(Math.max(point.value, 0).toFixed(3)),
     }));
 }
 

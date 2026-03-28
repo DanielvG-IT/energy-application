@@ -1,63 +1,47 @@
-import { MetricCard, SignalRow } from "../components/dashboard/ConsoleUi";
+import {
+  GaugeCard,
+  MetricCard,
+  SignalRow,
+} from "../components/dashboard/ConsoleUi";
 import FlowTrendChart from "../components/dashboard/FlowTrendChart";
+import SeriesTrendChart from "../components/telemetry/SeriesTrendChart";
 import { useEnergyData } from "../hooks/useEnergyData";
 import {
   averageSeriesValue,
   buildCombinedTrendData,
-  buildRecentBars,
+  buildGasTrendData,
   formatPointTimestamp,
+  lastSeriesPoint,
   maxSeriesValue,
 } from "../lib/energyTelemetry";
 
-function formatWatts(value) {
-  return `${value.toFixed(0)} W`;
+const GAS_SERIES = [{ key: "gas", label: "Gas flow", color: "#22d3ee" }];
+
+function formatKw(value) {
+  return `${value.toFixed(1)} kW`;
 }
 
-function formatGasFlow(value) {
+function formatGas(value) {
   return `${value.toFixed(3)} m3/h`;
 }
 
-function SampleRow({ label, timestamp, value, tone }) {
-  return (
-    <div className="flex items-center justify-between rounded-[1.3rem] border border-white/8 bg-black/20 px-4 py-3">
-      <div>
-        <div className="text-sm font-medium text-white">{label}</div>
-        <div className="text-xs text-white/45">{formatPointTimestamp(timestamp)}</div>
-      </div>
-      <span className="font-mono text-sm" style={{ color: tone }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 export default function History() {
-  const { history, error } = useEnergyData({
+  const { today, history, error } = useEnergyData({
     includeNow: false,
-    includeToday: false,
-    refreshMs: 30000,
+    refreshMs: 60000,
   });
+  const summary = today.summary;
+  const powerTrend = buildCombinedTrendData(history);
+  const gasTrend = buildGasTrendData(history);
 
-  const trendData = buildCombinedTrendData(history);
-  const consumptionPoints = history?.consumption ?? [];
-  const productionPoints = history?.production ?? [];
-  const gasPoints = history?.gas ?? [];
-  const recentConsumption = buildRecentBars(
-    consumptionPoints,
-    6,
-    formatWatts,
-  ).reverse();
-  const recentProduction = buildRecentBars(
-    productionPoints,
-    3,
-    (value) => formatWatts(value),
-  ).reverse();
-  const recentGas = buildRecentBars(gasPoints, 3, formatGasFlow).reverse();
-
-  const avgConsumption = averageSeriesValue(consumptionPoints);
-  const peakConsumption = maxSeriesValue(consumptionPoints);
-  const avgProduction = averageSeriesValue(productionPoints);
-  const avgGas = averageSeriesValue(gasPoints);
+  const avgHome = averageSeriesValue(history?.consumption) / 1000;
+  const avgSolar = averageSeriesValue(history?.production) / 1000;
+  const avgGas = averageSeriesValue(history?.gas);
+  const peakHome = maxSeriesValue(history?.consumption) / 1000;
+  const lastConsumption = lastSeriesPoint(history?.consumption);
+  const lastProduction = lastSeriesPoint(history?.production);
+  const lastGas = lastSeriesPoint(history?.gas);
+  const solarCoverage = summary?.solarCoveragePct ?? 0;
 
   return (
     <div className="page-wrap">
@@ -67,44 +51,43 @@ export default function History() {
           aria-hidden="true"
           style={{
             background:
-              "radial-gradient(circle at top left, rgba(59,130,246,0.16), transparent 24%), radial-gradient(circle at 85% 18%, rgba(251,191,36,0.12), transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0))",
+              "radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 24%), radial-gradient(circle at 85% 15%, rgba(251,191,36,0.12), transparent 28%), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0))",
           }}
         />
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
-            <p className="hero-kicker">History deck</p>
+            <p className="hero-kicker">Historical view</p>
             <h1 className="page-title max-w-3xl">
-              Trend analysis now looks like part of the product instead of a utility page.
+              One consistent story for power, gas, and daily behavior.
             </h1>
             <p className="page-subtitle max-w-2xl">
-              Consumption, solar production, and gas flow all read from the same historical store
-              and are presented with the same control-room language as the dashboard.
+              Instead of a generic stats page, history now reads like the rest of the console:
+              strong telemetry cards, a live trend chart, and a separate gas ribbon.
             </p>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[540px]">
             <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
               <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Consumption points
+                Avg home
               </div>
               <div className="mt-2 font-mono text-xl font-bold text-white">
-                {consumptionPoints.length}
+                {formatKw(avgHome)}
               </div>
             </div>
             <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
               <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Production points
+                Avg solar
               </div>
               <div className="mt-2 font-mono text-xl font-bold text-white">
-                {productionPoints.length}
+                {formatKw(avgSolar)}
               </div>
             </div>
             <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
               <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Gas points
+                Avg gas
               </div>
               <div className="mt-2 font-mono text-xl font-bold text-white">
-                {gasPoints.length}
+                {formatGas(avgGas)}
               </div>
             </div>
           </div>
@@ -117,161 +100,85 @@ export default function History() {
         </div>
       )}
 
-      <section className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
-        <div className="order-2 space-y-4 xl:order-1">
-          <MetricCard
-            eyebrow="Consumption"
-            label="Average draw"
-            value={formatWatts(avgConsumption)}
-            subcopy="Mean household load across the visible history window."
-            accent="#3b82f6"
-          />
-          <MetricCard
-            eyebrow="Peak"
-            label="Highest draw"
-            value={formatWatts(peakConsumption)}
-            subcopy="Largest visible consumption sample in this range."
-            accent="#f59e0b"
-          />
-          <MetricCard
-            eyebrow="Solar"
-            label="Average production"
-            value={formatWatts(avgProduction)}
-            subcopy="Mean solar output across the visible history window."
-            accent="#fbbf24"
-          />
-          <MetricCard
-            eyebrow="Gas"
-            label="Average gas flow"
-            value={formatGasFlow(avgGas)}
-            subcopy="Mean gas-flow value across the visible history window."
-            accent="#22d3ee"
-          />
-        </div>
-
-        <div className="order-1 space-y-4 xl:order-2">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="order-1 space-y-4">
           <section className="card rounded-[2rem]">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="kicker">Unified ribbon</p>
-                <p className="card-header mb-1">Consumption versus production</p>
-                <p className="text-sm text-white/55">
-                  The trend ribbon gives the historical pages the same visual rhythm as the live dashboard.
-                </p>
-              </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-white/72">
-                {trendData.length > 0 ? `${trendData.length} hourly buckets` : "Waiting for history"}
-              </div>
+            <div className="mb-4">
+              <p className="kicker">Power history</p>
+              <p className="card-header mb-1">Recent household profile</p>
+              <p className="text-sm text-white/55">
+                Solar, grid, home, and modeled reserve share one timeline.
+              </p>
             </div>
-            <FlowTrendChart data={trendData} />
+            <FlowTrendChart data={powerTrend} />
           </section>
 
           <section className="card rounded-[2rem]">
             <div className="mb-4">
-              <p className="kicker">Recent samples</p>
-              <p className="card-header mb-1">Last visible telemetry points</p>
+              <p className="kicker">Gas history</p>
+              <p className="card-header mb-1">Recent gas rhythm</p>
+              <p className="text-sm text-white/55">
+                A dedicated gas ribbon keeps the unit separate from power metrics.
+              </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-3">
-                <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/38">
-                  Consumption
-                </div>
-                {recentConsumption.length === 0 && (
-                  <div className="rounded-[1.3rem] border border-white/8 bg-black/20 px-4 py-5 text-sm text-white/48">
-                    No consumption samples yet.
-                  </div>
-                )}
-                {recentConsumption.map((point) => (
-                  <SampleRow
-                    key={point.timestamp}
-                    label={point.label}
-                    timestamp={point.timestamp}
-                    value={point.formattedValue}
-                    tone="#3b82f6"
-                  />
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/38">
-                  Production
-                </div>
-                {recentProduction.length === 0 && (
-                  <div className="rounded-[1.3rem] border border-white/8 bg-black/20 px-4 py-5 text-sm text-white/48">
-                    No production samples yet.
-                  </div>
-                )}
-                {recentProduction.map((point) => (
-                  <SampleRow
-                    key={point.timestamp}
-                    label={point.label}
-                    timestamp={point.timestamp}
-                    value={point.formattedValue}
-                    tone="#fbbf24"
-                  />
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/38">
-                  Gas
-                </div>
-                {recentGas.length === 0 && (
-                  <div className="rounded-[1.3rem] border border-white/8 bg-black/20 px-4 py-5 text-sm text-white/48">
-                    No gas samples yet.
-                  </div>
-                )}
-                {recentGas.map((point) => (
-                  <SampleRow
-                    key={point.timestamp}
-                    label={point.label}
-                    timestamp={point.timestamp}
-                    value={point.formattedValue}
-                    tone="#22d3ee"
-                  />
-                ))}
-              </div>
-            </div>
+            <SeriesTrendChart
+              data={gasTrend}
+              series={GAS_SERIES}
+              unit="m3/h"
+              summaryLabel="Selected slot"
+              emptyMessage="Waiting for enough gas history to draw a chart."
+            />
           </section>
         </div>
 
-        <div className="order-3 space-y-4">
-          <section className="card space-y-3 rounded-[1.9rem] p-5">
+        <div className="order-2 space-y-4">
+          <MetricCard
+            eyebrow="Average"
+            label="Home draw"
+            value={formatKw(avgHome)}
+            subcopy="Average home demand across the history window."
+            accent="#3b82f6"
+          />
+          <MetricCard
+            eyebrow="Peak"
+            label="Highest recent home draw"
+            value={formatKw(peakHome)}
+            subcopy="Useful for spotting spikes before diving into raw data."
+            accent="#f59e0b"
+          />
+          <GaugeCard
+            percent={solarCoverage}
+            label="Today coverage"
+            detail={`${solarCoverage.toFixed(0)}% of today's usage covered by solar.`}
+            color="#fbbf24"
+          />
+
+          <div className="card space-y-3 rounded-[1.9rem] p-5">
             <div>
-              <p className="kicker">Pipeline state</p>
-              <p className="card-header mb-1">History integrity</p>
+              <p className="kicker">Latest samples</p>
+              <p className="card-header mb-1">Most recent captured points</p>
             </div>
             <SignalRow
-              label="Consumption history"
-              value={consumptionPoints.length > 0 ? "loaded" : "empty"}
-              tone={consumptionPoints.length > 0 ? "ok" : "idle"}
+              label="Consumption"
+              value={lastConsumption ? formatPointTimestamp(lastConsumption.timestamp) : "none yet"}
+              tone={lastConsumption ? "info" : "idle"}
             />
             <SignalRow
-              label="Production history"
-              value={productionPoints.length > 0 ? "loaded" : "empty"}
-              tone={productionPoints.length > 0 ? "ok" : "idle"}
+              label="Production"
+              value={lastProduction ? formatPointTimestamp(lastProduction.timestamp) : "none yet"}
+              tone={lastProduction ? "ok" : "idle"}
             />
             <SignalRow
-              label="Gas history"
-              value={gasPoints.length > 0 ? "loaded" : "empty"}
-              tone={gasPoints.length > 0 ? "ok" : "idle"}
+              label="Gas"
+              value={lastGas ? formatPointTimestamp(lastGas.timestamp) : "none yet"}
+              tone={lastGas ? "info" : "idle"}
             />
             <SignalRow
-              label="Unified ribbon"
-              value={trendData.length > 0 ? "ready" : "warming up"}
-              tone={trendData.length > 0 ? "info" : "idle"}
+              label="History density"
+              value={history?.consumption?.length ? `${history.consumption.length} power points` : "warming up"}
+              tone={history?.consumption?.length ? "info" : "idle"}
             />
-          </section>
-
-          <section className="card rounded-[1.9rem] p-5">
-            <p className="kicker">Why it changed</p>
-            <p className="card-header mb-2">A better historical surface</p>
-            <p className="text-sm leading-6 text-white/58">
-              The old page was functional but visually disconnected from the new dashboard.
-              This pass keeps the same historical data while presenting it with clearer hierarchy,
-              better scanability, and a stronger mobile-first order.
-            </p>
-          </section>
+          </div>
         </div>
       </section>
     </div>
