@@ -10,6 +10,10 @@ namespace Energy.Api.Infrastructure.Adapters;
 /// </summary>
 public sealed class P1SmartMeterAdapter(HttpClient httpClient, IRuntimeEnergySettings settings, ILogger<P1SmartMeterAdapter> logger) : ISmartMeterAdapter
 {
+  private readonly object _gasLock = new();
+  private double? _lastGasMeterReadingM3;
+  private DateTimeOffset? _lastGasTimestamp;
+
   public async Task<SmartMeterRealtime> GetRealtimeAsync(CancellationToken cancellationToken)
   {
     var cfg = settings.Get();
@@ -19,14 +23,17 @@ public sealed class P1SmartMeterAdapter(HttpClient httpClient, IRuntimeEnergySet
     }
 
     var baseUrl = cfg.SmartMeterBaseUrl.TrimEnd('/');
-    var (powerConsumedW, powerProducedW, gasM3) = await FetchSensorValuesAsync(baseUrl, cancellationToken);
+    var timestamp = DateTimeOffset.UtcNow;
+    var (powerConsumedW, powerProducedW, gasMeterReadingM3) = await FetchSensorValuesAsync(baseUrl, cancellationToken);
+    var gasFlowM3h = CalculateGasFlow(gasMeterReadingM3, timestamp);
 
     return new SmartMeterRealtime(
-        DateTimeOffset.UtcNow,
+        timestamp,
         // Keep import/export as raw grid channels; net is derived later in EnergyCalculator.
         powerConsumedW,
         powerProducedW,
-        gasM3);
+        gasFlowM3h,
+        gasMeterReadingM3);
   }
 
   private async Task<(double powerConsumedW, double powerProducedW, double gasM3)> FetchSensorValuesAsync(
@@ -52,6 +59,33 @@ public sealed class P1SmartMeterAdapter(HttpClient httpClient, IRuntimeEnergySet
         powerConsumedTask.Result,
         powerProducedTask.Result,
         gasTask.Result);
+  }
+
+  private double CalculateGasFlow(double gasMeterReadingM3, DateTimeOffset timestamp)
+  {
+    lock (_gasLock)
+    {
+      if (_lastGasMeterReadingM3 is null || _lastGasTimestamp is null)
+      {
+        _lastGasMeterReadingM3 = gasMeterReadingM3;
+        _lastGasTimestamp = timestamp;
+        return 0;
+      }
+
+      var elapsedHours = (timestamp - _lastGasTimestamp.Value).TotalHours;
+      var deltaM3 = gasMeterReadingM3 - _lastGasMeterReadingM3.Value;
+
+      _lastGasMeterReadingM3 = gasMeterReadingM3;
+      _lastGasTimestamp = timestamp;
+
+      if (elapsedHours <= 0 || deltaM3 <= 0)
+      {
+        return 0;
+      }
+
+      var flowM3h = deltaM3 / elapsedHours;
+      return flowM3h is > 0 and < 100 ? flowM3h : 0;
+    }
   }
 
   private async Task<double> QuerySensorAsync(string endpoint, string sensorName, CancellationToken cancellationToken)

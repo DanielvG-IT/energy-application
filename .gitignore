@@ -34,3 +34,4 @@ Thumbs.db
 *.swo
 
 /plugin
+backend/Energy.Api/energy-settings.db

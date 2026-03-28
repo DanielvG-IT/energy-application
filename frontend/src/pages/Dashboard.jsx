@@ -9,10 +9,12 @@ import LiveEnergyScene from "../components/dashboard/LiveEnergyScene";
 import FlowTrendChart from "../components/dashboard/FlowTrendChart";
 import { useEnergyData } from "../hooks/useEnergyData";
 import { buildCombinedTrendData } from "../lib/energyTelemetry";
-
-function formatKw(value) {
-  return `${value.toFixed(1)} kW`;
-}
+import {
+  formatCompactPower,
+  formatPower,
+  GRID_ACTIVITY_THRESHOLD_KW,
+  SOLAR_ACTIVITY_THRESHOLD_KW,
+} from "../lib/powerFormatting";
 
 function formatKwh(value) {
   return `${value.toFixed(1)} kWh`;
@@ -44,8 +46,8 @@ export default function Dashboard() {
   const solarKw = Math.max(0, (now?.solarProductionW ?? 0) / 1000);
   const homeKw = Math.max(0, (now?.netHomeW ?? 0) / 1000);
   const gridNetKw = (now?.netGridW ?? 0) / 1000;
-  const gridImport = gridNetKw > 0.05;
-  const gridExport = gridNetKw < -0.05;
+  const gridImport = gridNetKw > GRID_ACTIVITY_THRESHOLD_KW;
+  const gridExport = gridNetKw < -GRID_ACTIVITY_THRESHOLD_KW;
   const gridImportKw = gridImport ? gridNetKw : 0;
   const gridExportKw = gridExport ? Math.abs(gridNetKw) : 0;
   const usedToday = summary?.usedKwh ?? 0;
@@ -102,9 +104,9 @@ export default function Dashboard() {
               </div>
               <div className="mt-2 font-mono text-xl font-bold text-white">
                 {gridImport
-                  ? `IN ${gridImportKw.toFixed(1)}`
+                  ? `IN ${formatCompactPower(gridImportKw)}`
                   : gridExport
-                    ? `OUT ${gridExportKw.toFixed(1)}`
+                    ? `OUT ${formatCompactPower(gridExportKw)}`
                     : "BALANCED"}
               </div>
             </div>
@@ -131,14 +133,14 @@ export default function Dashboard() {
           <MetricCard
             eyebrow="Generation"
             label="Live solar"
-            value={formatKw(solarKw)}
+            value={formatPower(solarKw)}
             subcopy={solarKw > 0 ? "Panels are actively feeding the site." : "No active solar generation right now."}
             accent="#fbbf24"
           />
           <MetricCard
             eyebrow="Demand"
             label="Home load"
-            value={formatKw(homeKw)}
+            value={formatPower(homeKw)}
             subcopy={`${formatKwh(usedToday)} used so far today.`}
             accent="#3b82f6"
           />
@@ -147,17 +149,17 @@ export default function Dashboard() {
             label="Utility exchange"
             value={
               gridImport
-                ? formatKw(gridImportKw)
+                ? formatPower(gridImportKw)
                 : gridExport
-                  ? formatKw(gridExportKw)
-                  : "0.0 kW"
+                  ? formatPower(gridExportKw)
+                  : formatPower(0)
             }
             subcopy={
               gridImport
                 ? "Importing from the grid."
                 : gridExport
                   ? "Exporting surplus back to the grid."
-                  : "Flow is effectively balanced."
+                  : "Grid flow is near zero right now."
             }
             accent={gridImport ? "#8b5cf6" : "#10b981"}
           />
@@ -196,16 +198,16 @@ export default function Dashboard() {
               </div>
               <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-white/72">
                 {gridImport
-                  ? `Grid import ${gridImportKw.toFixed(1)} kW`
+                  ? `Grid import ${formatPower(gridImportKw)}`
                   : gridExport
-                    ? `Grid export ${gridExportKw.toFixed(1)} kW`
+                    ? `Grid export ${formatPower(gridExportKw)}`
                     : "Grid balanced"}
               </div>
             </div>
             <div className="px-2 pb-3 pt-2">
               <LiveEnergyScene
                 solarKw={solarKw}
-                solarActive={solarKw > 0.05}
+                solarActive={solarKw > SOLAR_ACTIVITY_THRESHOLD_KW}
                 gridImportKw={gridImportKw}
                 gridExportKw={gridExportKw}
                 gridImport={gridImport}

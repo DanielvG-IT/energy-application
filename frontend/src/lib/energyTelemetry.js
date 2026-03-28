@@ -1,3 +1,5 @@
+import { roundPowerForChart } from "./powerFormatting";
+
 function sortPoints(points) {
   return [...(points ?? [])].sort(
     (left, right) => new Date(left.timestamp) - new Date(right.timestamp),
@@ -84,10 +86,10 @@ export function buildCombinedTrendData(history, limit = 12) {
     .slice(-limit)
     .map(([, point]) => ({
       label: point.label,
-      solar: Number(point.solar.toFixed(1)),
-      home: Number(point.home.toFixed(1)),
-      grid: Number(Math.max(point.home - point.solar, 0).toFixed(1)),
-      reserve: Number(Math.max(point.solar - point.home, 0).toFixed(1)),
+      solar: roundPowerForChart(point.solar),
+      home: roundPowerForChart(point.home),
+      grid: roundPowerForChart(Math.max(point.home - point.solar, 0)),
+      reserve: roundPowerForChart(Math.max(point.solar - point.home, 0)),
     }));
 }
 

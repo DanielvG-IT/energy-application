@@ -1,4 +1,5 @@
 using Energy.Api.Application;
+using Energy.Api.Infrastructure.Adapters;
 using Energy.Api.Infrastructure.Configuration;
 using Polly.Timeout;
 
@@ -122,76 +123,107 @@ public static class EnergyEndpoints
 
     group.MapPost("/settings/test", async (
         ISmartMeterAdapter smartMeter,
-        ISolarInverterAdapter inverter,
+        SmaInverterAdapter sma,
+        EnphaseInverterAdapter enphase,
+        IEnergyRepository repository,
         IRuntimeEnergySettings runtimeSettings,
         CancellationToken ct) =>
     {
+      const int testTimeoutSeconds = 10;
       var cfg = runtimeSettings.Get();
-      using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-      timeout.CancelAfter(TimeSpan.FromSeconds(10));
+      var smaConfigured = !string.IsNullOrWhiteSpace(cfg.SmaInverterBaseUrl);
+      var enphaseConfigured = !string.IsNullOrWhiteSpace(cfg.EnphaseInverterBaseUrl);
 
-      var meterOk = false;
-      var inverterOk = false;
-      string? meterError = null;
-      string? inverterError = null;
-      object? meterSample = null;
-      object? inverterSample = null;
+      static string FormatFailure(Exception ex) =>
+        ex is AdapterFailureException adapterFailure
+          ? $"{adapterFailure.Kind}: {adapterFailure.Message}"
+          : ex.Message;
 
-      try
+      async Task<(bool Ok, string? Error, object? Sample)> RunProbeAsync(Func<CancellationToken, Task<object?>> probe)
       {
-        var meter = await smartMeter.GetRealtimeAsync(timeout.Token);
-        meterOk = true;
-        meterSample = new
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(testTimeoutSeconds));
+
+        try
+        {
+          return (true, null, await probe(timeout.Token));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+          throw;
+        }
+        catch (OperationCanceledException)
+        {
+          return (false, $"Timed out after {testTimeoutSeconds} seconds.", null);
+        }
+        catch (TimeoutRejectedException)
+        {
+          return (false, $"Timed out after {testTimeoutSeconds} seconds.", null);
+        }
+        catch (Exception ex)
+        {
+          return (false, FormatFailure(ex), null);
+        }
+      }
+
+      var meterTask = RunProbeAsync(async token =>
+      {
+        var meter = await smartMeter.GetRealtimeAsync(token);
+        return (object?)new
         {
           meter.ElectricityImportW,
           meter.ElectricityExportW,
           meter.GasFlowM3h
         };
-      }
-      catch (OperationCanceledException) when (ct.IsCancellationRequested)
-      {
-        throw;
-      }
-      catch (OperationCanceledException)
-      {
-        meterError = "Timed out after 10 seconds.";
-      }
-      catch (AdapterFailureException ex)
-      {
-        meterError = $"{ex.Kind}: {ex.Message}";
-      }
-      catch (Exception ex)
-      {
-        meterError = ex.Message;
-      }
+      });
 
-      try
-      {
-        var solar = await inverter.GetRealtimeAsync(timeout.Token);
-        inverterOk = true;
-        inverterSample = new
+      var smaTask = smaConfigured
+        ? RunProbeAsync(async token =>
         {
-          solar.ProductionW
-        };
-      }
-      catch (OperationCanceledException) when (ct.IsCancellationRequested)
-      {
-        throw;
-      }
-      catch (OperationCanceledException)
-      {
-        inverterError = "Timed out after 10 seconds.";
-      }
-      catch (AdapterFailureException ex)
-      {
-        inverterError = $"{ex.Kind}: {ex.Message}";
-      }
-      catch (Exception ex)
-      {
-        inverterError = ex.Message;
-      }
+          var solar = await sma.GetRealtimeAsync(token);
+          return (object?)new
+          {
+            solar.ProductionW
+          };
+        })
+        : Task.FromResult((false, (string?)null, (object?)null));
 
-      var ok = meterOk && inverterOk;
+      var enphaseTask = enphaseConfigured
+        ? RunProbeAsync(async token =>
+        {
+          var solar = await enphase.GetRealtimeAsync(token);
+          return (object?)new
+          {
+            solar.ProductionW
+          };
+        })
+        : Task.FromResult((false, (string?)null, (object?)null));
+
+      var storageTask = RunProbeAsync(async token =>
+      {
+        await repository.PingAsync(token);
+        return (object?)new
+        {
+          status = "reachable"
+        };
+      });
+
+      await Task.WhenAll(meterTask, smaTask, enphaseTask, storageTask);
+
+      var (meterOk, meterError, meterSample) = await meterTask;
+      var (smaOk, smaError, smaSample) = await smaTask;
+      var (enphaseOk, enphaseError, enphaseSample) = await enphaseTask;
+      var (storageOk, storageError, storageSample) = await storageTask;
+
+      var configuredSolarResults = new[]
+      {
+        (Configured: smaConfigured, Ok: smaOk),
+        (Configured: enphaseConfigured, Ok: enphaseOk)
+      }.Where(x => x.Configured).ToArray();
+
+      var solarOk = configuredSolarResults.Length == 0 || configuredSolarResults.All(x => x.Ok);
+      var solarPartial = configuredSolarResults.Any(x => x.Ok) && configuredSolarResults.Any(x => !x.Ok);
+      var ok = meterOk && solarOk && storageOk;
 
       return Results.Ok(new
       {
@@ -202,11 +234,31 @@ public static class EnergyEndpoints
           error = meterError,
           sample = meterSample
         },
-        inverter = new
+        solar = new
         {
-          ok = inverterOk,
-          error = inverterError,
-          sample = inverterSample
+          ok = solarOk,
+          partial = solarPartial,
+          configured = configuredSolarResults.Length > 0
+        },
+        sma = new
+        {
+          configured = smaConfigured,
+          ok = smaConfigured && smaOk,
+          error = smaError,
+          sample = smaSample
+        },
+        enphase = new
+        {
+          configured = enphaseConfigured,
+          ok = enphaseConfigured && enphaseOk,
+          error = enphaseError,
+          sample = enphaseSample
+        },
+        storage = new
+        {
+          ok = storageOk,
+          error = storageError,
+          sample = storageSample
         }
       });
     });

@@ -10,17 +10,27 @@ namespace Energy.Api.Infrastructure.Storage;
 
 public sealed class InfluxEnergyRepository(HttpClient httpClient, IOptions<InfluxOptions> options) : IEnergyRepository
 {
+    private const string ElectricityImportMetric = "electricity_import_w";
+    private const string ElectricityExportMetric = "electricity_export_w";
+    private const string SolarProductionMetric = "solar_production_w";
+    private const string GasFlowMetric = "gas_flow_m3h";
+    private const string GasMeterMetric = "gas_meter_m3";
+    private const string NetGridMetric = "net_grid_w";
+    private const string NetHomeMetric = "net_home_w";
+    private const double LegacyGasThresholdM3h = 50;
+
     private readonly InfluxOptions _cfg = options.Value;
 
     public async Task WriteSampleAsync(UnifiedSample sample, CancellationToken cancellationToken)
     {
         var body = new StringBuilder();
-        body.AppendLine(BuildLine("electricity_import_w", sample.ElectricityImportW, sample.Timestamp));
-        body.AppendLine(BuildLine("electricity_export_w", sample.ElectricityExportW, sample.Timestamp));
-        body.AppendLine(BuildLine("solar_production_w", sample.SolarProductionW, sample.Timestamp));
-        body.AppendLine(BuildLine("gas_flow_m3h", sample.GasFlowM3h, sample.Timestamp));
-        body.AppendLine(BuildLine("net_grid_w", sample.NetGridW, sample.Timestamp));
-        body.AppendLine(BuildLine("net_home_w", sample.NetHomeW, sample.Timestamp));
+        body.AppendLine(BuildLine(ElectricityImportMetric, sample.ElectricityImportW, sample.Timestamp));
+        body.AppendLine(BuildLine(ElectricityExportMetric, sample.ElectricityExportW, sample.Timestamp));
+        body.AppendLine(BuildLine(SolarProductionMetric, sample.SolarProductionW, sample.Timestamp));
+        body.AppendLine(BuildLine(GasFlowMetric, sample.GasFlowM3h, sample.Timestamp));
+        body.AppendLine(BuildLine(GasMeterMetric, sample.GasMeterReadingM3, sample.Timestamp));
+        body.AppendLine(BuildLine(NetGridMetric, sample.NetGridW, sample.Timestamp));
+        body.AppendLine(BuildLine(NetHomeMetric, sample.NetHomeW, sample.Timestamp));
 
         using var request = new HttpRequestMessage(HttpMethod.Post,
             $"{_cfg.Url.TrimEnd('/')}/api/v2/write?org={Uri.EscapeDataString(_cfg.Org)}&bucket={Uri.EscapeDataString(_cfg.Bucket)}&precision=ns");
@@ -31,18 +41,30 @@ public sealed class InfluxEnergyRepository(HttpClient httpClient, IOptions<Influ
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task PingAsync(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{_cfg.Url.TrimEnd('/')}/api/v2/buckets?name={Uri.EscapeDataString(_cfg.Bucket)}&org={Uri.EscapeDataString(_cfg.Org)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Token", _cfg.Token);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<UnifiedSample?> GetLatestAsync(CancellationToken cancellationToken)
     {
         var from = DateTimeOffset.UtcNow.AddMinutes(-30);
         var to = DateTimeOffset.UtcNow;
-        var import = await QuerySeriesAsync("electricity_import_w", from, to, "1m", cancellationToken);
-        var export = await QuerySeriesAsync("electricity_export_w", from, to, "1m", cancellationToken);
-        var solar = await QuerySeriesAsync("solar_production_w", from, to, "1m", cancellationToken);
-        var gas = await QuerySeriesAsync("gas_flow_m3h", from, to, "1m", cancellationToken);
-        var netGrid = await QuerySeriesAsync("net_grid_w", from, to, "1m", cancellationToken);
-        var netHome = await QuerySeriesAsync("net_home_w", from, to, "1m", cancellationToken);
+        var import = await QuerySeriesAsync(ElectricityImportMetric, from, to, "1m", cancellationToken);
+        var export = await QuerySeriesAsync(ElectricityExportMetric, from, to, "1m", cancellationToken);
+        var solar = await QuerySeriesAsync(SolarProductionMetric, from, to, "1m", cancellationToken);
+        var gasFlow = await QuerySeriesAsync(GasFlowMetric, from, to, "1m", cancellationToken);
+        var gasMeter = await QuerySeriesAsync(GasMeterMetric, from, to, "1m", cancellationToken);
+        var netGrid = await QuerySeriesAsync(NetGridMetric, from, to, "1m", cancellationToken);
+        var netHome = await QuerySeriesAsync(NetHomeMetric, from, to, "1m", cancellationToken);
 
-        var latestTime = new[] { import.LastOrDefault(), export.LastOrDefault(), solar.LastOrDefault(), gas.LastOrDefault(), netGrid.LastOrDefault(), netHome.LastOrDefault() }
+        var latestTime = new[] { import.LastOrDefault(), export.LastOrDefault(), solar.LastOrDefault(), gasFlow.LastOrDefault(), gasMeter.LastOrDefault(), netGrid.LastOrDefault(), netHome.LastOrDefault() }
             .Where(p => p is not null)
             .Select(p => p!.Timestamp)
             .DefaultIfEmpty()
@@ -58,30 +80,50 @@ public sealed class InfluxEnergyRepository(HttpClient httpClient, IOptions<Influ
             LastValue(import),
             LastValue(export),
             LastValue(solar),
-            LastValue(gas),
+            SelectGasFlow(gasFlow, gasMeter),
+            LastValue(gasMeter),
             LastValue(netGrid),
             LastValue(netHome));
     }
 
     public Task<IReadOnlyList<AggregatePoint>> GetConsumptionAsync(DateTimeOffset from, DateTimeOffset to, string window, CancellationToken cancellationToken)
-        => QuerySeriesAsync("net_home_w", from, to, MapWindow(window), cancellationToken);
+        => QuerySeriesAsync(NetHomeMetric, from, to, MapWindow(window), cancellationToken);
 
     public Task<IReadOnlyList<AggregatePoint>> GetProductionAsync(DateTimeOffset from, DateTimeOffset to, string window, CancellationToken cancellationToken)
-        => QuerySeriesAsync("solar_production_w", from, to, MapWindow(window), cancellationToken);
+        => QuerySeriesAsync(SolarProductionMetric, from, to, MapWindow(window), cancellationToken);
 
-    public Task<IReadOnlyList<AggregatePoint>> GetGasAsync(DateTimeOffset from, DateTimeOffset to, string window, CancellationToken cancellationToken)
-        => QuerySeriesAsync("gas_flow_m3h", from, to, MapWindow(window), cancellationToken);
+    public async Task<IReadOnlyList<AggregatePoint>> GetGasAsync(DateTimeOffset from, DateTimeOffset to, string window, CancellationToken cancellationToken)
+    {
+        var every = MapWindow(window);
+        var gasFlow = await QuerySeriesAsync(GasFlowMetric, from, to, every, cancellationToken);
+        var gasMeter = await QuerySeriesAsync(GasMeterMetric, from, to, every, cancellationToken);
+
+        if (gasMeter.Count > 1)
+        {
+            return DeriveFlowSeriesFromMeterReadings(gasMeter);
+        }
+
+        if (LooksLikeLegacyGasMeterSeries(gasFlow))
+        {
+            return DeriveFlowSeriesFromMeterReadings(gasFlow);
+        }
+
+        return gasFlow;
+    }
 
     public async Task<DailySummary> GetTodaySummaryAsync(DateOnly localDate, CancellationToken cancellationToken)
     {
         var from = new DateTimeOffset(localDate.ToDateTime(TimeOnly.MinValue), TimeZoneInfo.Local.GetUtcOffset(DateTime.Now)).ToUniversalTime();
         var to = DateTimeOffset.UtcNow;
 
-        var usageSeries = await QuerySeriesAsync("net_home_w", from, to, "15m", cancellationToken);
-        var productionSeries = await QuerySeriesAsync("solar_production_w", from, to, "15m", cancellationToken);
-        var importSeries = await QuerySeriesAsync("electricity_import_w", from, to, "15m", cancellationToken);
-        var exportSeries = await QuerySeriesAsync("electricity_export_w", from, to, "15m", cancellationToken);
-        var gasSeries = await QuerySeriesAsync("gas_flow_m3h", from, to, "15m", cancellationToken);
+        var usageSeries = await QuerySeriesAsync(NetHomeMetric, from, to, "15m", cancellationToken);
+        var productionSeries = await QuerySeriesAsync(SolarProductionMetric, from, to, "15m", cancellationToken);
+        var importSeries = await QuerySeriesAsync(ElectricityImportMetric, from, to, "15m", cancellationToken);
+        var exportSeries = await QuerySeriesAsync(ElectricityExportMetric, from, to, "15m", cancellationToken);
+        var gasMeterSeries = await QuerySeriesAsync(GasMeterMetric, from, to, "15m", cancellationToken);
+        var legacyGasSeries = gasMeterSeries.Count == 0
+            ? await QuerySeriesAsync(GasFlowMetric, from, to, "15m", cancellationToken)
+            : [];
 
         var elapsedHours = Math.Clamp((DateTime.Now - localDate.ToDateTime(TimeOnly.MinValue)).TotalHours, 0, 24);
 
@@ -89,7 +131,7 @@ public sealed class InfluxEnergyRepository(HttpClient httpClient, IOptions<Influ
         var producedKwh = productionSeries.Count == 0 ? 0 : productionSeries.Average(x => x.Value) * elapsedHours / 1000;
         var importedKwh = importSeries.Count == 0 ? 0 : importSeries.Average(x => x.Value) * elapsedHours / 1000;
         var exportedKwh = exportSeries.Count == 0 ? 0 : exportSeries.Average(x => x.Value) * elapsedHours / 1000;
-        var gasM3 = gasSeries.Count == 0 ? 0 : gasSeries.Average(x => x.Value) * elapsedHours;
+        var gasM3 = ComputeGasConsumedToday(gasMeterSeries, legacyGasSeries);
         var solarUsedKwh = Math.Max(usedKwh - importedKwh, 0);
         var coverage = usedKwh <= 0 ? 0 : Math.Min(100, (solarUsedKwh / usedKwh) * 100);
 
@@ -151,6 +193,81 @@ public sealed class InfluxEnergyRepository(HttpClient httpClient, IOptions<Influ
     {
         var ns = timestamp.ToUnixTimeMilliseconds() * 1_000_000;
         return $"energy,metric={metric} value={value.ToString(CultureInfo.InvariantCulture)} {ns}";
+    }
+
+    private static double SelectGasFlow(IReadOnlyList<AggregatePoint> gasFlow, IReadOnlyList<AggregatePoint> gasMeter)
+    {
+        var latestFlow = LastValue(gasFlow);
+        if (latestFlow > 0 && latestFlow < LegacyGasThresholdM3h)
+        {
+            return latestFlow;
+        }
+
+        if (gasMeter.Count > 1)
+        {
+            return LastValue(DeriveFlowSeriesFromMeterReadings(gasMeter));
+        }
+
+        if (LooksLikeLegacyGasMeterSeries(gasFlow))
+        {
+            return LastValue(DeriveFlowSeriesFromMeterReadings(gasFlow));
+        }
+
+        return Math.Clamp(latestFlow, 0, LegacyGasThresholdM3h);
+    }
+
+    private static double ComputeGasConsumedToday(IReadOnlyList<AggregatePoint> gasMeterSeries, IReadOnlyList<AggregatePoint> legacyGasSeries)
+    {
+        if (gasMeterSeries.Count > 1)
+        {
+            return ComputeMeterDelta(gasMeterSeries);
+        }
+
+        if (LooksLikeLegacyGasMeterSeries(legacyGasSeries))
+        {
+            return ComputeMeterDelta(legacyGasSeries);
+        }
+
+        return 0;
+    }
+
+    private static double ComputeMeterDelta(IReadOnlyList<AggregatePoint> points)
+    {
+        if (points.Count < 2)
+        {
+            return 0;
+        }
+
+        var delta = points[^1].Value - points[0].Value;
+        return delta > 0 ? delta : 0;
+    }
+
+    private static bool LooksLikeLegacyGasMeterSeries(IReadOnlyList<AggregatePoint> points)
+    {
+        return points.Count > 1 && points.Max(p => p.Value) > LegacyGasThresholdM3h;
+    }
+
+    private static IReadOnlyList<AggregatePoint> DeriveFlowSeriesFromMeterReadings(IReadOnlyList<AggregatePoint> meterSeries)
+    {
+        var flowSeries = new List<AggregatePoint>();
+
+        for (var i = 1; i < meterSeries.Count; i++)
+        {
+            var previous = meterSeries[i - 1];
+            var current = meterSeries[i];
+            var elapsedHours = (current.Timestamp - previous.Timestamp).TotalHours;
+            var deltaM3 = current.Value - previous.Value;
+
+            if (elapsedHours <= 0 || deltaM3 < 0)
+            {
+                continue;
+            }
+
+            var flowM3h = deltaM3 / elapsedHours;
+            flowSeries.Add(new AggregatePoint(current.Timestamp, Math.Clamp(flowM3h, 0, LegacyGasThresholdM3h)));
+        }
+
+        return flowSeries;
     }
 
     private static double LastValue(IReadOnlyList<AggregatePoint> points)

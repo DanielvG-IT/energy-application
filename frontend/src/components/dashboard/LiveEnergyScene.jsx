@@ -1,3 +1,5 @@
+import { formatCompactPower } from "../../lib/powerFormatting";
+
 function Particles({ d, color, count, dur, reverse = false }) {
   return (
     <>
@@ -273,7 +275,7 @@ export default function LiveEnergyScene({
         <circle cx={0} cy={0} r={14} fill="#fde68a" opacity={solarActive ? 1 : 0.15} />
         <circle cx={0} cy={0} r={8} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.3} />
       </g>
-      {solarActive && <ScenePill x={100} y={44} text={`SOLAR ${solarKw.toFixed(1)} kW`} color="#fbbf24" />}
+      {solarActive && <ScenePill x={100} y={44} text={`SOLAR ${formatCompactPower(solarKw)}`} color="#fbbf24" />}
 
       <g transform="translate(56,188)">
         <rect x={-4} y={0} width={8} height={227} rx={2} fill="#131c2e" stroke="#1e2a40" strokeWidth={1} />
@@ -311,8 +313,8 @@ export default function LiveEnergyScene({
         </circle>
         <rect x={-10} y={225} width={20} height={7} rx={2} fill="#0d1525" />
       </g>
-      {gridImport && <ScenePill x={58} y={152} text={`GRID IN ${gridImportKw.toFixed(1)} kW`} color="#8b5cf6" />}
-      {gridExport && <ScenePill x={58} y={152} text={`GRID OUT ${gridExportKw.toFixed(1)} kW`} color="#10b981" />}
+      {gridImport && <ScenePill x={58} y={152} text={`GRID IN ${formatCompactPower(gridImportKw)}`} color="#8b5cf6" />}
+      {gridExport && <ScenePill x={58} y={152} text={`GRID OUT ${formatCompactPower(gridExportKw)}`} color="#10b981" />}
 
       <g transform="translate(320,0)">
         <ellipse cx={164} cy={425} rx={148} ry={9} fill="#3b82f6" opacity={0.05} />
@@ -422,7 +424,7 @@ export default function LiveEnergyScene({
 
         <rect x={10} y={413} width={308} height={5} fill="#131c2e" />
       </g>
-      <ScenePill x={484} y={447} text={`HOME ${homeKw.toFixed(1)} kW`} color="#3b82f6" />
+      <ScenePill x={484} y={447} text={`HOME ${formatCompactPower(homeKw)}`} color="#3b82f6" />
 
       <g transform="translate(648,215)">
         <rect x={-10} y={-8} width={88} height={202} rx={5} fill="#060910" stroke="#1a2235" strokeWidth={1} />
@@ -506,10 +508,10 @@ export default function LiveEnergyScene({
         )}
       </g>
       {batteryCharging && (
-        <ScenePill x={682} y={198} text={`BAT IN ${batteryChargeKw.toFixed(1)} kW`} color="#10b981" />
+        <ScenePill x={682} y={198} text={`BAT IN ${formatCompactPower(batteryChargeKw)}`} color="#10b981" />
       )}
       {batteryDischarging && (
-        <ScenePill x={682} y={198} text={`BAT OUT ${batteryDischargeKw.toFixed(1)} kW`} color="#f59e0b" />
+        <ScenePill x={682} y={198} text={`BAT OUT ${formatCompactPower(batteryDischargeKw)}`} color="#f59e0b" />
       )}
       {!batteryLinked && !batteryCharging && !batteryDischarging && (
         <ScenePill x={682} y={198} text="BATTERY STANDBY" color="#4b5563" />
@@ -526,7 +528,7 @@ export default function LiveEnergyScene({
         <rect x={5} y={7} width={22} height={16} rx={2} fill={evCharging ? "#091d38" : "#080e18"} stroke={evCharging ? "#1d4ed8" : "#111827"} strokeWidth={0.5} />
         {evCharging && (
           <text x={16} y={18} textAnchor="middle" fill="#60a5fa" fontSize={7} fontFamily="monospace">
-            {evKw.toFixed(1)}kW
+            {formatCompactPower(evKw)}
           </text>
         )}
         <circle cx={16} cy={38} r={10} fill="none" stroke={evCharging ? "#3b82f6" : "#1e2740"} strokeWidth={1.5} />
@@ -550,7 +552,7 @@ export default function LiveEnergyScene({
           EVSE
         </text>
       </g>
-      {evCharging && <ScenePill x={786} y={252} text={`EV ${evKw.toFixed(1)} kW`} color="#3b82f6" />}
+      {evCharging && <ScenePill x={786} y={252} text={`EV ${formatCompactPower(evKw)}`} color="#3b82f6" />}
       {!evLinked && !evCharging && (
         <ScenePill x={786} y={252} text="EV STANDBY" color="#4b5563" />
       )}

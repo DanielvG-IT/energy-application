@@ -35,20 +35,24 @@ builder.Services.AddSingleton<IEnergyService, EnergyService>();
 builder.Services.AddHttpClient<P1SmartMeterAdapter>()
   .AddStandardResilienceHandler();
 
-builder.Services.AddHttpClient<SmaInverterAdapter>()
+builder.Services.AddHttpClient("sma")
   .AddStandardResilienceHandler(options =>
   {
     // Must be greater than AttemptTimeout (default 10s) to satisfy resilience validation.
     options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(12);
   });
 
-builder.Services.AddHttpClient<EnphaseInverterAdapter>()
+builder.Services.AddHttpClient("enphase")
   .AddStandardResilienceHandler();
 
 builder.Services.AddHttpClient<InfluxEnergyRepository>()
   .AddStandardResilienceHandler();
 
 builder.Services.AddSingleton<ISmartMeterAdapter>(sp => sp.GetRequiredService<P1SmartMeterAdapter>());
+builder.Services.AddSingleton<SmaInverterAdapter>(sp =>
+  ActivatorUtilities.CreateInstance<SmaInverterAdapter>(sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient("sma")));
+builder.Services.AddSingleton<EnphaseInverterAdapter>(sp =>
+  ActivatorUtilities.CreateInstance<EnphaseInverterAdapter>(sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient("enphase")));
 builder.Services.AddSingleton<ConfiguredSolarInverterAdapter>();
 builder.Services.AddSingleton<ISolarInverterAdapter>(sp => sp.GetRequiredService<ConfiguredSolarInverterAdapter>());
 builder.Services.AddSingleton<IEnergyRepository>(sp => sp.GetRequiredService<InfluxEnergyRepository>());

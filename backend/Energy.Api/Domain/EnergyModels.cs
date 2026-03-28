@@ -4,7 +4,8 @@ public sealed record SmartMeterRealtime(
     DateTimeOffset Timestamp,
     double ElectricityImportW,
     double ElectricityExportW,
-    double GasFlowM3h);
+    double GasFlowM3h,
+    double GasMeterReadingM3);
 
 public sealed record SolarRealtime(
     DateTimeOffset Timestamp,
@@ -16,6 +17,7 @@ public sealed record UnifiedSample(
     double ElectricityExportW,
     double SolarProductionW,
     double GasFlowM3h,
+    double GasMeterReadingM3,
     double NetGridW,
     double NetHomeW);
 

@@ -27,6 +27,7 @@ export function useRuntimeSettings() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
+  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +58,7 @@ export function useRuntimeSettings() {
   async function save(nextSettings) {
     setSaving(true);
     setMessage("");
+    setTestResult(null);
     try {
       const res = await fetch(`${API_BASE}/settings`, {
         method: "PUT",
@@ -79,23 +81,43 @@ export function useRuntimeSettings() {
   async function testConnection() {
     setTesting(true);
     setMessage("");
+    setTestResult(null);
     try {
       const res = await fetch(`${API_BASE}/settings/test`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Failed to test");
       const result = await res.json();
-      if (result.ok) {
-        setMessage("✓ Connection test passed for all devices!");
-      } else {
-        const meterInfo = result.smartMeter?.ok
+      setTestResult(result);
+
+      const parts = [];
+      parts.push(
+        result.smartMeter?.ok
           ? "meter ok"
-          : `meter failed: ${result.smartMeter?.error ?? "unknown"}`;
-        const inverterInfo = result.inverter?.ok
-          ? "inverter ok"
-          : `inverter failed: ${result.inverter?.error ?? "unknown"}`;
-        setMessage(`⚠ Partial failure: ${meterInfo}; ${inverterInfo}`);
+          : `meter failed: ${result.smartMeter?.error ?? "unknown"}`,
+      );
+
+      if (result.sma?.configured) {
+        parts.push(
+          result.sma.ok ? "SMA ok" : `SMA failed: ${result.sma.error ?? "unknown"}`,
+        );
       }
+
+      if (result.enphase?.configured) {
+        parts.push(
+          result.enphase.ok
+            ? "Enphase ok"
+            : `Enphase failed: ${result.enphase.error ?? "unknown"}`,
+        );
+      }
+
+      parts.push(
+        result.storage?.ok
+          ? "storage ok"
+          : `storage failed: ${result.storage?.error ?? "unknown"}`,
+      );
+
+      setMessage(`${result.ok ? "✓" : "⚠"} ${parts.join("; ")}`);
     } catch {
       setMessage("✗ Connection test failed. Backend may be unavailable.");
     } finally {
@@ -110,6 +132,7 @@ export function useRuntimeSettings() {
     saving,
     testing,
     message,
+    testResult,
     save,
     testConnection,
   };

@@ -33,15 +33,20 @@ public sealed class ConfiguredSolarInverterAdapter(
     var results = await Task.WhenAll(tasks);
     var successes = results.Where(r => r.Error is null).ToArray();
 
-    foreach (var failure in results.Where(r => r.Error is not null))
-    {
-      logger.LogWarning(failure.Error, "{Source} inverter read failed.", failure.Source);
-    }
-
     if (successes.Length == 0)
     {
+      foreach (var failure in results.Where(r => r.Error is not null))
+      {
+        logger.LogWarning(failure.Error, "{Source} inverter read failed.", failure.Source);
+      }
+
       var failures = results.Where(r => r.Error is not null).Select(r => r.Error!).ToArray();
       throw BuildAggregateFailure(failures);
+    }
+
+    foreach (var failure in results.Where(r => r.Error is not null))
+    {
+      logger.LogDebug(failure.Error, "{Source} inverter read failed, but another configured solar source succeeded.", failure.Source);
     }
 
     var totalW = successes.Sum(r => r.Value);

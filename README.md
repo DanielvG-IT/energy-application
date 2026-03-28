@@ -38,6 +38,32 @@ Local-first personal energy monitoring for family use.
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:8080
 
+## Local development without Docker for the backend
+
+On macOS, port `5000` is often occupied by Control Center / AirTunes. The local `.NET` launch profile in this repo uses `http://localhost:5180` instead.
+
+1. Start InfluxDB:
+
+   ```bash
+   docker compose up -d influxdb
+   ```
+
+2. Start the backend:
+
+   ```bash
+   cd backend/Energy.Api
+   dotnet run
+   ```
+
+3. Start the frontend:
+
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+The Vite dev proxy is preconfigured to forward `/api` to `http://localhost:5180`.
+
 ## Production notes
 
 - Frontend container is built as static assets and served by `nginx`.

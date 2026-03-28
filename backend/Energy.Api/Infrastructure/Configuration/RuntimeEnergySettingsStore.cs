@@ -142,8 +142,8 @@ ON CONFLICT(Id) DO UPDATE SET
 
     options.SmaMeterUsername ??= "installer";
     options.SmaMeterPassword ??= "installer";
-    options.SmaLoginRight = string.IsNullOrWhiteSpace(options.SmaLoginRight) ? "usr" : options.SmaLoginRight.Trim();
-    options.SmaPvPowerKey = string.IsNullOrWhiteSpace(options.SmaPvPowerKey) ? "6100_40263F00" : options.SmaPvPowerKey.Trim();
+    options.SmaLoginRight = options.SmaGroup == "installer" ? "istl" : "usr";
+    options.SmaPvPowerKey = string.IsNullOrWhiteSpace(options.SmaPvPowerKey) ? "6100_0046C200" : options.SmaPvPowerKey.Trim();
     options.EnphaseToken ??= string.Empty;
     options.EnphaseSessionId ??= string.Empty;
     return options;

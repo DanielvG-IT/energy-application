@@ -1,4 +1,5 @@
 import SeriesTrendChart from "../telemetry/SeriesTrendChart";
+import { formatAxisPower, formatPower } from "../../lib/powerFormatting";
 
 const SERIES = [
   { key: "solar", label: "Solar", color: "#fbbf24" },
@@ -15,6 +16,8 @@ export default function FlowTrendChart({ data }) {
       unit="kW"
       summaryLabel="Selected hour"
       emptyMessage="Waiting for enough hourly history to draw the trend line."
+      valueFormatter={formatPower}
+      axisFormatter={formatAxisPower}
     />
   );
 }

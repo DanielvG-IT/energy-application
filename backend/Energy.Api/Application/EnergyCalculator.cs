@@ -22,6 +22,7 @@ public sealed class EnergyCalculator : IEnergyCalculator
             meter.ElectricityExportW,
             solar.ProductionW,
             meter.GasFlowM3h,
+            meter.GasMeterReadingM3,
             netGrid,
             netHome);
     }

@@ -18,6 +18,8 @@ export default function SeriesTrendChart({
   unit,
   emptyMessage,
   summaryLabel = "Selected slot",
+  valueFormatter,
+  axisFormatter,
 }) {
   const [hoveredIndex, setHoveredIndex] = useState(Math.max(data.length - 1, 0));
 
@@ -47,6 +49,10 @@ export default function SeriesTrendChart({
   const guideSteps = 4;
   const activeIndex = Math.min(Math.max(hoveredIndex, 0), data.length - 1);
   const activePoint = data[activeIndex];
+  const displayValue =
+    valueFormatter ??
+    ((value) => `${value.toFixed(1)}${unit ? ` ${unit}` : ""}`);
+  const displayAxis = axisFormatter ?? ((value) => value.toFixed(1));
 
   function xForIndex(index) {
     if (data.length === 1) {
@@ -98,7 +104,7 @@ export default function SeriesTrendChart({
                 {entry.label}
               </div>
               <div className="mt-1 font-mono text-lg font-bold" style={{ color: entry.color }}>
-                {activePoint[entry.key].toFixed(1)} {unit}
+                {displayValue(activePoint[entry.key])}
               </div>
             </div>
           ))}
@@ -142,7 +148,7 @@ export default function SeriesTrendChart({
                   fill="rgba(255,255,255,0.38)"
                   fontSize="9"
                   fontFamily="monospace">
-                  {value.toFixed(1)}
+                  {displayAxis(value)}
                 </text>
               </g>
             );

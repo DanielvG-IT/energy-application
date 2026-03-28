@@ -9,6 +9,7 @@ export default function Settings() {
     saving: settingsSaving,
     testing: settingsTesting,
     message: settingsMessage,
+    testResult,
     save,
     testConnection,
   } = useRuntimeSettings();
@@ -18,6 +19,18 @@ export default function Settings() {
   const hasSmartMeter = Boolean(settings?.smartMeterBaseUrl?.trim());
   const hasSma = Boolean(settings?.smaInverterBaseUrl?.trim());
   const hasEnphase = Boolean(settings?.enphaseInverterBaseUrl?.trim());
+
+  const renderTestState = (configured, result, fallbackLabel) => {
+    if (!configured) {
+      return "Not configured";
+    }
+
+    if (!testResult) {
+      return fallbackLabel;
+    }
+
+    return result?.ok ? "Test passed" : "Test failed";
+  };
 
   const onSettingChange = (key, value) => {
     setSettings({ ...settings, [key]: value });
@@ -196,34 +209,6 @@ export default function Settings() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Login Right</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={settings?.smaLoginRight ?? "usr"}
-                    onChange={(e) =>
-                      onSettingChange("smaLoginRight", e.target.value)
-                    }
-                    placeholder="usr or istl"
-                  />
-                </div>
-                <div>
-                  <label className="label">Username</label>
-                  <input
-                    type="text"
-                    className="input"
-                    autoComplete="username"
-                    value={settings?.smaMeterUsername ?? ""}
-                    onChange={(e) =>
-                      onSettingChange("smaMeterUsername", e.target.value)
-                    }
-                    placeholder="installer"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
                   <label className="label">Password</label>
                   <input
                     type="password"
@@ -235,6 +220,11 @@ export default function Settings() {
                     }
                     placeholder="SMA password"
                   />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Login is optional on some SMA devices. If the inverter exposes
+                    public dash values, the backend will fall back to no-login
+                    mode automatically.
+                  </p>
                 </div>
                 <div>
                   <label className="label">PV Power Key</label>
@@ -245,7 +235,7 @@ export default function Settings() {
                     onChange={(e) =>
                       onSettingChange("smaPvPowerKey", e.target.value)
                     }
-                    placeholder="6100_40263F00"
+                    placeholder="6100_0046C200"
                   />
                 </div>
               </div>
@@ -376,12 +366,15 @@ export default function Settings() {
       {/* Device Status Summary */}
       <div className="card bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
         <p className="card-header">📡 System Status</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-slate-600">Smart Meter</p>
             <p
               className={`font-semibold ${hasSmartMeter ? "text-green-600" : "text-amber-600"}`}>
               {hasSmartMeter ? "Configured" : "Needs setup"}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {renderTestState(hasSmartMeter, testResult?.smartMeter, "Waiting for test")}
             </p>
           </div>
           <div>
@@ -390,12 +383,28 @@ export default function Settings() {
               className={`font-semibold ${hasSma ? "text-green-600" : "text-slate-500"}`}>
               {hasSma ? "Configured" : "Not configured"}
             </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {renderTestState(hasSma, testResult?.sma, "Waiting for test")}
+            </p>
           </div>
           <div>
             <p className="text-slate-600">Enphase Inverter</p>
             <p
               className={`font-semibold ${hasEnphase ? "text-green-600" : "text-slate-500"}`}>
               {hasEnphase ? "Configured" : "Not configured"}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {renderTestState(hasEnphase, testResult?.enphase, "Waiting for test")}
+            </p>
+          </div>
+          <div>
+            <p className="text-slate-600">Influx Storage</p>
+            <p
+              className={`font-semibold ${testResult?.storage?.ok ? "text-green-600" : "text-amber-600"}`}>
+              {testResult ? (testResult.storage?.ok ? "Reachable" : "Unavailable") : "Unchecked"}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {testResult?.storage?.error ?? "Time-series backend health"}
             </p>
           </div>
         </div>

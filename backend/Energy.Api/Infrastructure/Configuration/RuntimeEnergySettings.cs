@@ -17,6 +17,6 @@ public sealed class RuntimeEnergySettings
   public string SmaMeterUsername { get; set; } = "installer";
   public string SmaMeterPassword { get; set; } = "installer";
   public string SmaLoginRight { get; set; } = "usr";
-  public string SmaPvPowerKey { get; set; } = "6100_40263F00";
+  public string SmaPvPowerKey { get; set; } = "6100_0046C200";
   public string EnphaseSessionId { get; set; } = string.Empty;
 }
