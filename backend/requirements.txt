@@ -1,0 +1,6 @@
+fastapi==0.115.8
+uvicorn==0.34.0
+httpx==0.28.1
+aiohttp==3.12.15
+pysma==1.1.0
+pyenphase==2.4.6
