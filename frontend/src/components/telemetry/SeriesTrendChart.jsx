@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 function buildLinePath(points) {
-  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  return points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
 }
 
 function buildAreaPath(points, baselineY) {
@@ -22,17 +24,14 @@ export default function SeriesTrendChart({
   axisFormatter,
 }) {
   const [hoveredIndex, setHoveredIndex] = useState(Math.max(data.length - 1, 0));
+  const gradientPrefix = useId().replace(/:/g, "");
 
   useEffect(() => {
     setHoveredIndex(Math.max(data.length - 1, 0));
   }, [data.length]);
 
   if (data.length === 0) {
-    return (
-      <div className="rounded-[1.5rem] border border-white/8 bg-black/20 px-4 py-10 text-center text-sm text-white/55">
-        {emptyMessage}
-      </div>
-    );
+    return <div className="chart-empty">{emptyMessage}</div>;
   }
 
   const width = 860;
@@ -86,24 +85,23 @@ export default function SeriesTrendChart({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-          <div className="text-[0.62rem] uppercase tracking-[0.28em] text-white/40">
-            {summaryLabel}
-          </div>
+      <div className="chart-meta">
+        <div className="chart-summary-card">
+          <div className="kicker">{summaryLabel}</div>
           <div className="mt-2 font-mono text-2xl font-bold text-white">
             {activePoint.label}
           </div>
         </div>
-        <div className={`grid min-w-[240px] gap-2 ${series.length > 2 ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2"}`}>
+
+        <div className="chart-series-grid">
           {series.map((entry) => (
-            <div
-              key={entry.key}
-              className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
-              <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
+            <div key={entry.key} className="chart-series-card">
+              <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/38">
                 {entry.label}
               </div>
-              <div className="mt-1 font-mono text-lg font-bold" style={{ color: entry.color }}>
+              <div
+                className="mt-2 font-mono text-lg font-bold"
+                style={{ color: entry.color }}>
                 {displayValue(activePoint[entry.key])}
               </div>
             </div>
@@ -111,7 +109,7 @@ export default function SeriesTrendChart({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[1.75rem] border border-white/8 bg-black/20 px-3 py-4">
+      <div className="chart-shell">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           width="100%"
@@ -120,8 +118,14 @@ export default function SeriesTrendChart({
           onMouseLeave={() => setHoveredIndex(data.length - 1)}>
           <defs>
             {series.map((entry) => (
-              <linearGradient key={entry.key} id={`trend-${entry.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={entry.color} stopOpacity={0.28} />
+              <linearGradient
+                key={entry.key}
+                id={`${gradientPrefix}-trend-${entry.key}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1">
+                <stop offset="0%" stopColor={entry.color} stopOpacity={0.26} />
                 <stop offset="100%" stopColor={entry.color} stopOpacity={0} />
               </linearGradient>
             ))}
@@ -145,7 +149,7 @@ export default function SeriesTrendChart({
                   x={paddingX - 8}
                   y={y + 4}
                   textAnchor="end"
-                  fill="rgba(255,255,255,0.38)"
+                  fill="rgba(255,255,255,0.36)"
                   fontSize="9"
                   fontFamily="monospace">
                   {displayAxis(value)}
@@ -160,7 +164,7 @@ export default function SeriesTrendChart({
               x={xForIndex(index)}
               y={height - 10}
               textAnchor="middle"
-              fill="rgba(255,255,255,0.38)"
+              fill="rgba(255,255,255,0.34)"
               fontSize="9"
               fontFamily="monospace">
               {point.label}
@@ -171,7 +175,7 @@ export default function SeriesTrendChart({
             <path
               key={`${entry.key}-area`}
               d={buildAreaPath(seriesPoints[entry.key], paddingTop + plotHeight)}
-              fill={`url(#trend-${entry.key})`}
+              fill={`url(#${gradientPrefix}-trend-${entry.key})`}
             />
           ))}
 

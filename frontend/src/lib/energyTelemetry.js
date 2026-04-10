@@ -60,7 +60,7 @@ export function buildCombinedTrendData(history, limit = 12) {
       home: 0,
       solar: 0,
     };
-    current.home = Math.max(point.value, 0) / 1000;
+    current.home = Math.max(point.value, 0);
     buckets.set(key, current);
   }
 
@@ -77,7 +77,7 @@ export function buildCombinedTrendData(history, limit = 12) {
       home: 0,
       solar: 0,
     };
-    current.solar = Math.max(point.value, 0) / 1000;
+    current.solar = Math.max(point.value, 0);
     buckets.set(key, current);
   }
 

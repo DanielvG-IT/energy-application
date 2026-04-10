@@ -2,10 +2,10 @@ import SeriesTrendChart from "../telemetry/SeriesTrendChart";
 import { formatAxisPower, formatPower } from "../../lib/powerFormatting";
 
 const SERIES = [
-  { key: "solar", label: "Solar", color: "#fbbf24" },
-  { key: "grid", label: "Grid", color: "#8b5cf6" },
-  { key: "home", label: "Home", color: "#3b82f6" },
-  { key: "reserve", label: "Reserve", color: "#10b981" },
+  { key: "solar", label: "Solar", color: "#f5a524" },
+  { key: "grid", label: "Grid", color: "#ff7a59" },
+  { key: "home", label: "Home", color: "#5ad4ff" },
+  { key: "reserve", label: "Reserve", color: "#5ed9b4" },
 ];
 
 export default function FlowTrendChart({ data }) {

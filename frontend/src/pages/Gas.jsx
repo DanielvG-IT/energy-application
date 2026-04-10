@@ -1,7 +1,5 @@
-import {
-  MetricCard,
-  SignalRow,
-} from "../components/dashboard/ConsoleUi";
+import { MetricCard, SignalRow } from "../components/dashboard/ConsoleUi";
+import PageHero from "../components/PageHero";
 import SeriesTrendChart from "../components/telemetry/SeriesTrendChart";
 import { useEnergyData } from "../hooks/useEnergyData";
 import {
@@ -11,7 +9,7 @@ import {
   maxSeriesValue,
 } from "../lib/energyTelemetry";
 
-const GAS_SERIES = [{ key: "gas", label: "Gas flow", color: "#22d3ee" }];
+const GAS_SERIES = [{ key: "gas", label: "Gas flow", color: "#4fd1e5" }];
 
 function formatGas(value) {
   return `${value.toFixed(3)} m3/h`;
@@ -30,69 +28,41 @@ export default function Gas() {
 
   return (
     <div className="page-wrap">
-      <section className="card relative overflow-hidden px-6 py-6 md:px-7">
-        <div
-          className="absolute inset-0 opacity-80"
-          aria-hidden="true"
-          style={{
-            background:
-              "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 24%), radial-gradient(circle at 85% 15%, rgba(59,130,246,0.12), transparent 28%), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0))",
-          }}
-        />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-3">
-            <p className="hero-kicker">Gas flow</p>
-            <h1 className="page-title max-w-3xl">
-              The gas page is now live instead of placeholder content.
-            </h1>
-            <p className="page-subtitle max-w-2xl">
-              Current flow, today's accumulated usage, and recent rhythm all come from the
-              same telemetry stream as the rest of the app.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[540px]">
-            <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
-              <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Live flow
-              </div>
-              <div className="mt-2 font-mono text-xl font-bold text-white">
-                {formatGas(gasFlow)}
-              </div>
-            </div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
-              <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Today
-              </div>
-              <div className="mt-2 font-mono text-xl font-bold text-white">
-                {gasToday.toFixed(2)} m3
-              </div>
-            </div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-black/20 px-4 py-4">
-              <div className="text-[0.62rem] uppercase tracking-[0.24em] text-white/40">
-                Peak recent
-              </div>
-              <div className="mt-2 font-mono text-xl font-bold text-white">
-                {formatGas(peakGas)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        eyebrow="Gas desk"
+        title="Give gas the same level of care as power instead of leaving it as placeholder content."
+        description="Current flow, today's accumulated usage, and the recent cadence all come from the same telemetry stream as the rest of the app, but with their own unit and pacing."
+        accent="cyan"
+        stats={[
+          {
+            label: "Live flow",
+            value: formatGas(gasFlow),
+            note: "Current gas-flow rate",
+          },
+          {
+            label: "Used today",
+            value: `${gasToday.toFixed(2)} m3`,
+            note: "Accumulated usage today",
+          },
+          {
+            label: "Peak recent",
+            value: formatGas(peakGas),
+            note: "Highest recent gas-flow sample",
+          },
+        ]}
+      />
 
-      {error && (
-        <div className="card border-amber-400/25 bg-amber-300/10">
-          <p className="text-sm text-amber-100">{error}</p>
-        </div>
-      )}
+      {error && <div className="notice-banner warn">{error}</div>}
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="order-1 space-y-4">
-          <section className="card rounded-[2rem]">
+        <div className="space-y-4">
+          <section className="card rounded-[2.2rem]">
             <div className="mb-4">
               <p className="kicker">Flow ribbon</p>
               <p className="card-header mb-1">Recent gas cadence</p>
               <p className="text-sm text-white/55">
-                The chart shows live gas-flow samples over the latest captured windows.
+                The chart shows live gas-flow samples over the latest captured
+                windows.
               </p>
             </div>
             <SeriesTrendChart
@@ -104,29 +74,29 @@ export default function Gas() {
             />
           </section>
 
-          <section className="card space-y-3 rounded-[2rem] p-5">
+          <section className="card space-y-3 rounded-[2.2rem] p-5">
             <div>
               <p className="kicker">Recent pulses</p>
               <p className="card-header mb-1">Latest meter snapshots</p>
             </div>
             {recentBars.length === 0 && (
-              <p className="text-sm text-white/55">
-                No recent gas samples yet.
-              </p>
+              <p className="text-sm text-white/55">No recent gas samples yet.</p>
             )}
             {recentBars.map((point) => (
               <div key={point.timestamp} className="space-y-2">
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="font-mono text-white/80">{point.label}</span>
-                  <span className="font-mono text-white">{point.formattedValue}</span>
+                  <span className="font-mono text-white">
+                    {point.formattedValue}
+                  </span>
                 </div>
-                <div className="h-2 rounded-full bg-white/6">
+                <div className="h-2.5 rounded-full bg-white/6">
                   <div
-                    className="h-2 rounded-full"
+                    className="h-2.5 rounded-full"
                     style={{
                       width: `${point.widthPct}%`,
-                      background: "#22d3ee",
-                      boxShadow: "0 0 12px rgba(34,211,238,0.45)",
+                      background: "#4fd1e5",
+                      boxShadow: "0 0 14px rgba(79, 209, 229, 0.45)",
                     }}
                   />
                 </div>
@@ -135,30 +105,30 @@ export default function Gas() {
           </section>
         </div>
 
-        <div className="order-2 space-y-4">
+        <div className="space-y-4">
           <MetricCard
             eyebrow="Live"
             label="Current flow"
             value={formatGas(gasFlow)}
             subcopy="This is the current gas-flow rate from the meter feed."
-            accent="#22d3ee"
+            accent="#4fd1e5"
           />
           <MetricCard
             eyebrow="Daily"
             label="Used today"
             value={`${gasToday.toFixed(2)} m3`}
             subcopy="Accumulated gas usage across the current day."
-            accent="#38bdf8"
+            accent="#5ad4ff"
           />
           <MetricCard
             eyebrow="Average"
             label="Rolling mean"
             value={formatGas(avgGas)}
             subcopy="Average recent gas-flow reading across the history window."
-            accent="#0ea5e9"
+            accent="#5ed9b4"
           />
 
-          <div className="card space-y-3 rounded-[1.9rem] p-5">
+          <div className="card space-y-3 rounded-[2rem] p-5">
             <div>
               <p className="kicker">Telemetry health</p>
               <p className="card-header mb-1">What the stream is telling us</p>

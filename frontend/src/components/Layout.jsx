@@ -1,100 +1,183 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 
 const NAV_ITEMS = [
-  { name: "Dashboard", path: "/" },
-  { name: "History", path: "/history" },
-  { name: "Solar", path: "/solar" },
-  { name: "Gas", path: "/gas" },
-  { name: "Settings", path: "/settings" },
+  {
+    name: "Dashboard",
+    path: "/",
+    code: "01",
+    note: "Live house telemetry",
+  },
+  {
+    name: "History",
+    path: "/history",
+    code: "02",
+    note: "Power and gas trends",
+  },
+  {
+    name: "Solar",
+    path: "/solar",
+    code: "03",
+    note: "Production and self-use",
+  },
+  {
+    name: "Gas",
+    path: "/gas",
+    code: "04",
+    note: "Meter flow and cadence",
+  },
+  {
+    name: "Settings",
+    path: "/settings",
+    code: "05",
+    note: "Device setup and testing",
+  },
 ];
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
   const location = useLocation();
-  const active = NAV_ITEMS.find((item) => item.path === location.pathname);
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  const active = useMemo(
+    () => NAV_ITEMS.find((item) => item.path === location.pathname) ?? NAV_ITEMS[0],
+    [location.pathname],
+  );
+
+  const dateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }).format(clock),
+    [clock],
+  );
+
+  const timeLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(clock),
+    [clock],
+  );
 
   return (
-    <div className="app-shell md:flex">
-      <aside
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } fixed inset-y-0 left-0 z-40 w-72 energy-sidebar transition-transform duration-300 md:relative md:w-72 md:translate-x-0 flex flex-col overflow-y-auto`}>
-        <div className="px-6 py-6 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-white/45">
-                Smart Home
-              </p>
-              <h1 className="text-xl font-bold text-white">Energy Console</h1>
+    <div className="app-shell">
+      <div className="shell-frame">
+        <aside
+          className={`energy-sidebar ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-[110%] md:translate-x-0"
+          }`}>
+          <div className="sidebar-brand">
+            <div className="flex items-center gap-4">
+              <div className="brand-mark">FE</div>
+              <div>
+                <p className="kicker">Family energy</p>
+                <h1 className="text-xl font-semibold text-white">Control deck</h1>
+              </div>
             </div>
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden rounded-lg border border-white/10 bg-white/5 p-2 text-white transition-colors hover:bg-white/10"
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:hidden"
               aria-label="Close navigation">
               X
             </button>
           </div>
-        </div>
 
-        <nav className="flex-1 p-4 space-y-1.5">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setSidebarOpen(false)}
-              className={`nav-pill ${
-                location.pathname === item.path ? "active" : "inactive"
-              }`}>
-              <span>{item.name}</span>
-            </Link>
-          ))}
-        </nav>
+          <div className="brand-panel">
+            <p className="kicker">Sharper reads</p>
+            <p className="text-base leading-6 text-white/78">
+              One visual language for live flow, recent history, and device
+              configuration.
+            </p>
+            <div className="brand-panel-grid">
+              <div className="brand-panel-cell">
+                <span>Views</span>
+                <strong>{NAV_ITEMS.length}</strong>
+              </div>
+              <div className="brand-panel-cell">
+                <span>Mode</span>
+                <strong>Live</strong>
+              </div>
+            </div>
+          </div>
 
-        <div className="m-4 rounded-3xl border border-white/10 bg-white/5 p-5 text-xs text-white/60">
-          <p className="font-medium text-white">System online</p>
-          <p className="mt-2">Live telemetry and device controls</p>
-        </div>
-      </aside>
+          <nav className="nav-stack">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === "/"}
+                className={({ isActive }) =>
+                  `nav-pill ${isActive ? "active" : "inactive"}`
+                }>
+                <span className="nav-pill-code">{item.code}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="nav-pill-label">{item.name}</span>
+                  <span className="nav-pill-note">{item.note}</span>
+                </span>
+              </NavLink>
+            ))}
+          </nav>
 
-      {sidebarOpen && (
-        <button
-          className="fixed inset-0 z-30 bg-black/55 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Close menu overlay"
-        />
-      )}
+          <div className="sidebar-note">
+            <p className="kicker">Current view</p>
+            <p className="mt-2 text-lg font-semibold text-white">{active.name}</p>
+            <p className="mt-2 text-sm text-white/55">{active.note}</p>
+          </div>
+        </aside>
 
-      <div className="md:ml-0 min-h-screen flex-1 md:pl-0">
-        <header className="sticky top-0 z-20 border-b border-white/10 bg-[#080b11]/80 px-4 py-3 backdrop-blur md:px-8 md:py-4">
-          <div className="flex items-center justify-between">
+        {sidebarOpen && (
+          <button
+            type="button"
+            className="shell-overlay"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu overlay"
+          />
+        )}
+
+        <div className="shell-content">
+          <header className="shell-header">
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white md:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-lg font-semibold text-white transition-colors hover:bg-white/10 md:hidden"
                 aria-label="Open navigation">
                 =
               </button>
+
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-white/45">
-                  Overview
-                </p>
-                <h2 className="text-lg font-semibold text-white">
-                  {active?.name ?? "Energy"}
-                </h2>
+                <p className="shell-header-label">Current view</p>
+                <h2 className="shell-header-title">{active.name}</h2>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="hidden md:inline-flex status-chip ok">
-                Live feed active
-              </span>
-            </div>
-          </div>
-        </header>
 
-        <main className="layout-main">
-          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
-        </main>
+            <div className="shell-header-meta">
+              <div className="shell-header-chip">
+                <span>{dateLabel}</span>
+                <strong>{timeLabel}</strong>
+              </div>
+              <span className="status-chip ok">Telemetry-ready</span>
+            </div>
+          </header>
+
+          <main className="layout-main">
+            <div className="mx-auto w-full max-w-[1500px]">{children}</div>
+          </main>
+        </div>
       </div>
     </div>
   );
