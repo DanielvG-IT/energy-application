@@ -9,7 +9,7 @@ flowchart LR
       INV[Solar Inverter Adapter]
     end
 
-    subgraph Backend[ASP.NET Core Backend]
+    subgraph Backend[Python FastAPI Backend]
       POLL[Polling Hosted Service]
       NORM[Normalization and Validation]
       INS[Insights Service]
@@ -68,12 +68,10 @@ flowchart LR
 
 ## Adapter contracts
 
-- ISmartMeterAdapter:
-  - GetRealtimeAsync()
-  - GetDailyTotalsAsync(date)
-- ISolarInverterAdapter:
-  - GetRealtimeAsync()
-  - GetHistoryAsync(from,to,granularity)
+- SmartMeterAdapter:
+  - get_realtime()
+- SolarInverterAdapter:
+  - get_realtime()
 
 These interfaces allow easy brand-specific implementations (SMA, Enphase, future brands).
 

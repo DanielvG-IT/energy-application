@@ -17,7 +17,7 @@ services:
 
   backend:
     build:
-      context: ./backend/Energy.Api
+      context: ./backend
     container_name: energy-backend
     restart: unless-stopped
     ports:
@@ -25,11 +25,11 @@ services:
     depends_on:
       - influxdb
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      Influx__Url: http://influxdb:8086
-      Influx__Token: ${INFLUX_TOKEN}
-      Influx__Org: ${INFLUX_ORG}
-      Influx__Bucket: ${INFLUX_BUCKET}
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
 
   frontend:
     build:

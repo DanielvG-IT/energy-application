@@ -4,7 +4,7 @@ Local-first personal energy monitoring for family use.
 
 ## What this includes
 
-- .NET 10 backend API for ingestion, polling, calculations, and historical queries.
+- Python backend API for ingestion, polling, calculations, and historical queries.
 - Adapter-based integration model for smart meters and solar inverters.
 - React dashboard with Now, Today, and History sections.
 - InfluxDB time-series storage.
@@ -12,7 +12,7 @@ Local-first personal energy monitoring for family use.
 
 ## Why this stack
 
-- **ASP.NET Core Web API**: fast, lightweight, and stable for Raspberry Pi/homelab use.
+- **FastAPI (Python)**: async API with lightweight deployment and simple adapter integration.
 - **React + Vite**: simple front-end iteration and clear component structure.
 - **InfluxDB**: optimized for timestamped energy metrics and aggregation windows.
 - **Docker Compose**: easy local operation and service isolation without cloud.
@@ -40,8 +40,6 @@ Local-first personal energy monitoring for family use.
 
 ## Local development without Docker for the backend
 
-On macOS, port `5000` is often occupied by Control Center / AirTunes. The local `.NET` launch profile in this repo uses `http://localhost:5180` instead.
-
 1. Start InfluxDB:
 
    ```bash
@@ -51,8 +49,11 @@ On macOS, port `5000` is often occupied by Control Center / AirTunes. The local 
 2. Start the backend:
 
    ```bash
-   cd backend/Energy.Api
-   dotnet run
+   cd backend/python_api
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --port 5180
    ```
 
 3. Start the frontend:

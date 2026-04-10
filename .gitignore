@@ -1,14 +1,6 @@
-# .NET
-bin/
-obj/
-*.dll
-*.exe
-*.pdb
-*.user
-*.suo
+# IDE
 .vs/
 .vscode/
-appsettings.Development.json
 
 # Vite
 node_modules/
@@ -28,10 +20,21 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# IDE
+# Editor temp
 .idea/
 *.swp
 *.swo
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
 /plugin
-backend/Energy.Api/energy-settings.db
